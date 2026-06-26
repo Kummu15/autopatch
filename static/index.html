@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AutoPatch</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.3/dist/umd/supabase.min.js"></script>
+<style>
+/* ── Reset & Base ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',system-ui,sans-serif;background:#07111e;color:#e6f1fb;min-height:100vh}
+
+/* ── Nav ── */
+.ap-nav{display:flex;align-items:center;justify-content:space-between;padding:14px 28px;border-bottom:1px solid #122840;background:#0a1628;position:sticky;top:0;z-index:100}
+.ap-logo{font-size:15px;font-weight:600;color:#e6f1fb;display:flex;align-items:center;gap:8px;letter-spacing:-0.01em}
+.ap-logo .bolt{color:#378add}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-email{font-size:12px;color:#4a7fa8;background:#071828;padding:5px 10px;border-radius:5px;border:1px solid #122840}
+.btn-ghost{background:transparent;color:#85b7eb;border:1px solid #1c3d5c;border-radius:6px;padding:7px 14px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:border-color 0.15s,color 0.15s}
+.btn-ghost:hover{border-color:#378add;color:#e6f1fb}
+.btn-primary{background:#1a6abf;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-size:13px;cursor:pointer;font-weight:500;transition:background 0.15s}
+.btn-primary:hover{background:#1f7ed9}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed}
+
+/* ── Pages ── */
+.page{display:none;flex-direction:column;min-height:calc(100vh - 53px)}
+.page.active{display:flex}
+
+/* ── Auth Layout (shared login/signup) ── */
+.auth-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;gap:60px}
+.auth-left{max-width:380px}
+.auth-left h1{font-size:30px;font-weight:600;color:#e6f1fb;line-height:1.2;margin-bottom:14px;letter-spacing:-0.02em}
+.auth-left h1 span{color:#378add}
+.auth-left p{font-size:14px;color:#4a7fa8;line-height:1.65;margin-bottom:28px}
+.auth-features{display:flex;flex-direction:column;gap:10px}
+.auth-feat{display:flex;align-items:center;gap:10px;font-size:13px;color:#85b7eb}
+.auth-feat i{color:#378add;font-size:15px}
+.auth-card{background:#0a1628;border:1px solid #122840;border-radius:14px;padding:32px;width:100%;max-width:380px}
+.auth-card h2{font-size:17px;font-weight:600;color:#e6f1fb;margin-bottom:4px}
+.auth-card .sub{font-size:13px;color:#4a7fa8;margin-bottom:24px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;color:#4a7fa8;margin-bottom:6px;letter-spacing:0.05em;text-transform:uppercase;font-weight:500}
+.field input{width:100%;background:#071828;border:1px solid #122840;border-radius:7px;padding:10px 12px;font-size:14px;color:#e6f1fb;outline:none;transition:border-color 0.15s}
+.field input:focus{border-color:#378add}
+.field input::placeholder{color:#2a5070}
+.btn-full{width:100%;background:#1a6abf;color:#fff;border:none;border-radius:7px;padding:11px;font-size:14px;cursor:pointer;font-weight:500;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:8px;transition:background 0.15s}
+.btn-full:hover{background:#1f7ed9}
+.btn-full:disabled{opacity:0.5;cursor:not-allowed}
+.auth-divider{text-align:center;margin:18px 0;font-size:12px;color:#2a5070;position:relative}
+.auth-divider::before{content:'';position:absolute;top:50%;left:0;right:0;height:1px;background:#122840}
+.auth-divider span{background:#0a1628;padding:0 10px;position:relative}
+.auth-switch{text-align:center;margin-top:16px;font-size:13px;color:#4a7fa8}
+.auth-switch a{color:#378add;cursor:pointer;text-decoration:none;font-weight:500}
+.auth-switch a:hover{color:#60a8e0}
+.auth-demo{margin-top:12px;padding:10px 12px;border:1px dashed #1c3d5c;border-radius:8px;background:#071828;color:#85b7eb;font-size:12px;line-height:1.55}
+.auth-demo strong{color:#e6f1fb}
+.auth-error{color:#f85149;font-size:12px;margin-top:8px;min-height:18px}
+.auth-success{color:#3fb950;font-size:12px;margin-top:8px;min-height:18px}
+
+/* ── Dashboard ── */
+.dash-wrap{padding:28px 32px;max-width:860px;margin:0 auto;width:100%}
+.dash-topbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:28px}
+.dash-topbar h2{font-size:22px;font-weight:600;color:#e6f1fb;letter-spacing:-0.02em}
+.dash-topbar p{font-size:13px;color:#4a7fa8;margin-top:3px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:#0a1628;border:1px solid #122840;border-radius:10px;padding:18px 20px}
+.stat-label{font-size:10px;color:#4a7fa8;text-transform:uppercase;letter-spacing:0.07em;font-weight:600;margin-bottom:10px}
+.stat-val{font-size:26px;font-weight:600;color:#e6f1fb;letter-spacing:-0.02em}
+.stat-sub{font-size:11px;color:#378add;margin-top:5px}
+
+/* ── Tabs ── */
+.tab-bar{display:flex;gap:2px;background:#071828;border-radius:8px;padding:4px;margin-bottom:22px;border:1px solid #122840}
+.tab{flex:1;text-align:center;padding:8px;font-size:13px;color:#4a7fa8;border-radius:6px;cursor:pointer;font-weight:500;transition:background 0.15s,color 0.15s}
+.tab.active{background:#0a1628;color:#e6f1fb;border:1px solid #1c3d5c}
+
+/* ── Patch Generator ── */
+.panel{background:#0a1628;border:1px solid #122840;border-radius:12px;padding:20px;margin-bottom:14px}
+.panel h3{font-size:13px;font-weight:600;color:#85b7eb;margin-bottom:12px;text-transform:uppercase;letter-spacing:0.05em}
+.panel textarea{width:100%;background:#071828;border:1px solid #122840;border-radius:7px;padding:10px 12px;font-size:13px;color:#85b7eb;font-family:'JetBrains Mono','Fira Code',monospace;resize:vertical;outline:none;min-height:110px;line-height:1.6;transition:border-color 0.15s}
+.panel textarea:focus{border-color:#378add}
+.panel textarea::placeholder{color:#2a5070}
+.patch-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel select{background:#071828;border:1px solid #122840;border-radius:7px;padding:10px;color:#85b7eb;font-size:13px;width:100%;outline:none}
+.result-success{border-color:#1a4d2e}
+.result-fail{border-color:#4d1a1a}
+.result-title{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;margin-bottom:12px}
+.result-pre{font-size:12px;color:#85b7eb;line-height:1.7;white-space:pre-wrap;font-family:'JetBrains Mono','Fira Code',monospace}
+
+/* ── History ── */
+.history-panel{background:#0a1628;border:1px solid #122840;border-radius:12px;overflow:hidden}
+.history-header{padding:18px 20px;border-bottom:1px solid #122840;display:flex;align-items:center;justify-content:space-between}
+.history-header h3{font-size:13px;font-weight:600;color:#85b7eb;text-transform:uppercase;letter-spacing:0.05em}
+.history-count{font-size:11px;color:#4a7fa8;background:#071828;padding:3px 8px;border-radius:4px;border:1px solid #122840}
+.history-item{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid #071828;transition:background 0.1s;cursor:pointer}
+.history-item:last-child{border-bottom:none}
+.history-item:hover{background:#071828}
+.hi-left{display:flex;align-items:center;gap:12px}
+.hi-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.hi-dot.success{background:#3fb950;box-shadow:0 0 6px #3fb95066}
+.hi-dot.failed{background:#f85149;box-shadow:0 0 6px #f8514966}
+.hi-text{font-size:13px;color:#c8dff3;font-weight:500}
+.hi-meta{font-size:11px;color:#4a7fa8;margin-top:2px;display:flex;gap:8px;align-items:center}
+.hi-lang{background:#071828;border:1px solid #122840;border-radius:3px;padding:1px 6px;font-size:10px;color:#4a7fa8;font-family:monospace}
+.hi-badge{font-size:10px;padding:3px 9px;border-radius:4px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase}
+.hi-badge.success{background:#0f2d1a;color:#3fb950}
+.hi-badge.failed{background:#2d0f0f;color:#f85149}
+.history-empty{padding:48px 20px;text-align:center;color:#4a7fa8;font-size:13px}
+.history-empty i{font-size:32px;display:block;margin-bottom:12px;color:#122840}
+
+/* ── Spinner ── */
+.spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.65s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Responsive ── */
+@media(max-width:700px){
+  .auth-wrap{flex-direction:column;gap:32px}.auth-left{display:none}
+  .stats{grid-template-columns:1fr 1fr}.stat-card:last-child{grid-column:span 2}
+  .patch-row{grid-template-columns:1fr}.dash-wrap{padding:20px 16px}
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="ap-nav">
+  <div class="ap-logo"><i class="ti ti-bolt bolt"></i> AutoPatch</div>
+  <div class="nav-right">
+    <span class="nav-email" id="nav-email" style="display:none"></span>
+    <button class="btn-ghost" id="nav-signout" style="display:none" onclick="signOut()"><i class="ti ti-logout"></i> Sign out</button>
+    <button class="btn-ghost" id="nav-login" onclick="showPage('login')"><i class="ti ti-login"></i> Sign in</button>
+    <button class="btn-primary" id="nav-signup" onclick="showPage('signup')">Get started</button>
+  </div>
+</nav>
+
+<!-- PAGE: LOGIN -->
+<div class="page active" id="page-login">
+  <div class="auth-wrap">
+    <div class="auth-left">
+      <h1>Fix bugs faster with <span>AI patches</span></h1>
+      <p>Paste your broken code, describe the issue, and AutoPatch generates a working git diff in seconds using Groq's llama-3.1 model.</p>
+      <div class="auth-features">
+        <div class="auth-feat"><i class="ti ti-bolt"></i> Sub-second patch generation</div>
+        <div class="auth-feat"><i class="ti ti-history"></i> Full per-user patch history</div>
+        <div class="auth-feat"><i class="ti ti-code"></i> Python, JS, TS, Go and more</div>
+        <div class="auth-feat"><i class="ti ti-shield-check"></i> Your patches are private</div>
+      </div>
+    </div>
+    <div class="auth-card">
+      <h2>Welcome back</h2>
+      <p class="sub">Sign in to your AutoPatch account</p>
+      <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div class="field"><label>Password</label><input type="password" id="login-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+      <div class="auth-error" id="login-error"></div>
+      <button class="btn-full" onclick="doLogin()" id="login-btn"><i class="ti ti-login"></i> Sign in</button>
+      <div class="auth-demo"><strong>Demo mode:</strong> use any email and password to enter the dashboard locally.</div>
+      <div class="auth-switch" style="margin-top:20px">No account? <a onclick="showPage('signup')">Sign up free →</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: SIGNUP -->
+<div class="page" id="page-signup">
+  <div class="auth-wrap">
+    <div class="auth-left">
+      <h1>Start fixing bugs with <span>AI</span> today</h1>
+      <p>Create your free AutoPatch account. Every patch you generate is saved to your personal history — no one else can see it.</p>
+      <div class="auth-features">
+        <div class="auth-feat"><i class="ti ti-bolt"></i> Free to start</div>
+        <div class="auth-feat"><i class="ti ti-lock"></i> Per-user private history</div>
+        <div class="auth-feat"><i class="ti ti-cpu"></i> Powered by Groq + llama-3.1</div>
+        <div class="auth-feat"><i class="ti ti-git-branch"></i> Git-diff format output</div>
+      </div>
+    </div>
+    <div class="auth-card">
+      <h2>Create your account</h2>
+      <p class="sub">Free forever. No credit card required.</p>
+      <div class="field"><label>Email</label><input type="email" id="signup-email" placeholder="you@example.com" onkeydown="if(event.key==='Enter')doSignup()"/></div>
+      <div class="field"><label>Password</label><input type="password" id="signup-password" placeholder="At least 6 characters" onkeydown="if(event.key==='Enter')doSignup()"/></div>
+      <div class="auth-error" id="signup-error"></div>
+      <div class="auth-success" id="signup-success"></div>
+      <button class="btn-full" onclick="doSignup()" id="signup-btn"><i class="ti ti-user-plus"></i> Create account</button>
+      <div class="auth-demo"><strong>Demo mode:</strong> sign up with any email and password to try the app instantly.</div>
+      <div class="auth-switch" style="margin-top:20px">Already have an account? <a onclick="showPage('login')">Sign in →</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: DASHBOARD -->
+<div class="page" id="page-dash">
+  <div class="dash-wrap">
+    <div class="dash-topbar">
+      <div>
+        <h2>Dashboard</h2>
+        <p id="dash-greeting">Welcome back</p>
+      </div>
+      <div class="auth-demo" style="margin-top:0;padding:8px 10px;max-width:240px">
+        <strong>Demo ready:</strong> your patches and history stay in this browser session.
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Total patches</div>
+        <div class="stat-val" id="stat-total">—</div>
+        <div class="stat-sub">all time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Successful</div>
+        <div class="stat-val" id="stat-success">—</div>
+        <div class="stat-sub" id="stat-rate">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Model</div>
+        <div class="stat-val" style="font-size:14px;padding-top:4px;letter-spacing:0">llama-3.1</div>
+        <div class="stat-sub">8b instant · Groq</div>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <div class="tab active" id="tab-btn-patch" onclick="switchTab('patch')">
+        <i class="ti ti-bolt" style="font-size:12px;margin-right:4px"></i> Generate patch
+      </div>
+      <div class="tab" id="tab-btn-history" onclick="switchTab('history')">
+        <i class="ti ti-history" style="font-size:12px;margin-right:4px"></i> My history
+      </div>
+    </div>
+
+    <!-- PATCH TAB -->
+    <div id="tab-patch">
+      <div class="panel">
+        <h3>Buggy code</h3>
+        <textarea id="code" placeholder="def add(a, b):&#10;    return a - b  # bug: should be +" rows="7"></textarea>
+      </div>
+      <div class="panel">
+        <h3>Agent workflow</h3>
+        <div id="agent-workflow" style="font-size:13px;color:#85b7eb;line-height:1.7">The agent will inspect the issue, draft a patch, and verify the result before returning it.</div>
+      </div>
+      <div class="patch-row">
+        <div class="panel">
+          <h3>Describe the issue</h3>
+          <textarea id="issue" placeholder="The function subtracts instead of adding. Fix it to return a + b." style="min-height:70px"></textarea>
+        </div>
+        <div class="panel" style="display:flex;flex-direction:column;gap:12px">
+          <h3>Language</h3>
+          <select id="lang">
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="typescript">TypeScript</option>
+            <option value="go">Go</option>
+            <option value="rust">Rust</option>
+            <option value="java">Java</option>
+          </select>
+          <button class="btn-full" style="margin-top:auto" onclick="generatePatch()" id="gen-btn">
+            <i class="ti ti-bolt"></i> Generate patch
+          </button>
+        </div>
+      </div>
+      <div id="patch-result" style="display:none" class="panel">
+        <div class="result-title" id="result-title"></div>
+        <pre class="result-pre" id="result-body"></pre>
+        <div id="agent-details" style="margin-top:12px;display:none"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY TAB -->
+    <div id="tab-history" style="display:none">
+      <div class="history-panel">
+        <div class="history-header">
+          <h3><i class="ti ti-history" style="margin-right:6px"></i> Your patch history</h3>
+          <span class="history-count" id="history-count">Loading…</span>
+        </div>
+        <div id="history-list">
+          <div class="history-empty"><i class="ti ti-loader-2"></i> Loading your patches…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://rvxrkglflfeermkxnvxe.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ2eHJrZ2xmbGZlZXJta3hudnhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0NTQ4NjUsImV4cCI6MjA5ODAzMDg2NX0.-f5cugN2hFEwk9Y5o21V0fgNFlBdj82P3tgpu1UVxdc";
+const API = "http://127.0.0.1:8000";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const DEMO_USER_KEY = 'autopatch-demo-user';
+let currentUser = null;
+
+function applyAuthState(user) {
+  currentUser = user;
+  if (user) {
+    const email = user.email;
+    document.getElementById('nav-email').textContent = email;
+    document.getElementById('nav-email').style.display = 'inline';
+    document.getElementById('nav-signout').style.display = 'inline-flex';
+    document.getElementById('nav-login').style.display = 'none';
+    document.getElementById('nav-signup').style.display = 'none';
+    document.getElementById('dash-greeting').textContent = 'Signed in as ' + email;
+    showPage('dash');
+    loadStats();
+  } else {
+    document.getElementById('nav-email').style.display = 'none';
+    document.getElementById('nav-signout').style.display = 'none';
+    document.getElementById('nav-login').style.display = 'inline-flex';
+    document.getElementById('nav-signup').style.display = 'inline-block';
+    showPage('login');
+  }
+}
+
+function makeUserId() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  return 'user-' + Math.random().toString(36).slice(2, 10);
+}
+
+function setDemoSession(email) {
+  const demoUser = { id: makeUserId(), email };
+  localStorage.setItem(DEMO_USER_KEY, JSON.stringify(demoUser));
+  applyAuthState(demoUser);
+}
+
+function clearDemoSession() {
+  localStorage.removeItem(DEMO_USER_KEY);
+}
+
+sb.auth.onAuthStateChange((event, session) => {
+  if (session) {
+    applyAuthState(session.user);
+  } else {
+    const savedDemo = localStorage.getItem(DEMO_USER_KEY);
+    if (savedDemo) {
+      try {
+        const parsed = JSON.parse(savedDemo);
+        applyAuthState(parsed);
+      } catch (e) {
+        clearDemoSession();
+        applyAuthState(null);
+      }
+    } else {
+      applyAuthState(null);
+    }
+  }
+});
+
+const savedDemo = localStorage.getItem(DEMO_USER_KEY);
+if (savedDemo) {
+  try {
+    applyAuthState(JSON.parse(savedDemo));
+  } catch (e) {
+    clearDemoSession();
+    applyAuthState(null);
+  }
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  window.scrollTo(0, 0);
+  if (name === 'login' || name === 'signup') {
+    document.getElementById('nav-login').style.display = name === 'signup' ? 'inline-flex' : 'none';
+    document.getElementById('nav-signup').style.display = name === 'login' ? 'inline-block' : 'none';
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pwd = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  errEl.textContent = '';
+  if (!email || !pwd) { errEl.textContent = 'Please enter your email and password.'; return; }
+  btn.innerHTML = '<span class="spinner"></span> Signing in…';
+  btn.disabled = true;
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+    if (error) {
+      if (email.includes('@') && pwd) {
+        setDemoSession(email);
+      } else {
+        errEl.textContent = error.message;
+      }
+    } else if (data?.user) {
+      applyAuthState(data.user);
+    } else {
+      setDemoSession(email);
+    }
+  } catch (e) {
+    setDemoSession(email);
+  }
+  btn.innerHTML = '<i class="ti ti-login"></i> Sign in';
+  btn.disabled = false;
+}
+
+async function doSignup() {
+  const email = document.getElementById('signup-email').value.trim();
+  const pwd = document.getElementById('signup-password').value;
+  const errEl = document.getElementById('signup-error');
+  const okEl = document.getElementById('signup-success');
+  const btn = document.getElementById('signup-btn');
+  errEl.textContent = ''; okEl.textContent = '';
+  if (!email || !pwd) { errEl.textContent = 'Please fill in all fields.'; return; }
+  if (pwd.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; return; }
+  btn.innerHTML = '<span class="spinner"></span> Creating account…';
+  btn.disabled = true;
+  try {
+    const { error } = await sb.auth.signUp({ email, password: pwd });
+    if (error) {
+      setDemoSession(email);
+      okEl.textContent = '✓ Demo mode enabled for this session.';
+    } else {
+      setDemoSession(email);
+      okEl.textContent = '✓ Demo mode enabled for this session.';
+      document.getElementById('signup-email').value = '';
+      document.getElementById('signup-password').value = '';
+    }
+  } catch (e) {
+    setDemoSession(email);
+    okEl.textContent = '✓ Demo mode enabled for this session.';
+  }
+  btn.innerHTML = '<i class="ti ti-user-plus"></i> Create account';
+  btn.disabled = false;
+}
+
+async function signOut() {
+  clearDemoSession();
+  await sb.auth.signOut();
+  applyAuthState(null);
+}
+
+function switchTab(tab) {
+  ['patch','history'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === tab ? 'block' : 'none';
+    document.getElementById('tab-btn-' + t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'history') loadHistory();
+}
+
+async function loadStats() {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(API + '/history?user_id=' + encodeURIComponent(currentUser.id));
+    const data = await res.json();
+    const total = data.length;
+    const success = data.filter(d => d.status === 'success').length;
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-success').textContent = success;
+    document.getElementById('stat-rate').textContent = total ? Math.round(success / total * 100) + '% success rate' : 'no patches yet';
+  } catch(e) {
+    document.getElementById('stat-total').textContent = '—';
+  }
+}
+
+async function loadHistory() {
+  if (!currentUser) return;
+  const list = document.getElementById('history-list');
+  const countEl = document.getElementById('history-count');
+  list.innerHTML = '<div class="history-empty"><i class="ti ti-loader-2"></i> Loading your patches…</div>';
+  try {
+    const res = await fetch(API + '/history?user_id=' + encodeURIComponent(currentUser.id));
+    const data = await res.json();
+    countEl.textContent = data.length + ' patch' + (data.length !== 1 ? 'es' : '');
+    if (!data.length) {
+      list.innerHTML = '<div class="history-empty"><i class="ti ti-inbox"></i>No patches yet.<br><span style="font-size:12px;margin-top:4px;display:block">Generate your first patch from the Generate tab.</span></div>';
+      return;
+    }
+    list.innerHTML = data.map(d => {
+      const date = new Date(d.created_at).toLocaleString(undefined, {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const text = d.issue_text.length > 70 ? d.issue_text.slice(0, 70) + '…' : d.issue_text;
+      const lang = d.language || 'unknown';
+      return `<div class="history-item">
+        <div class="hi-left">
+          <div class="hi-dot ${d.status}"></div>
+          <div>
+            <div class="hi-text">${escHtml(text)}</div>
+            <div class="hi-meta">
+              <span>${date}</span>
+              <span class="hi-lang">${escHtml(lang)}</span>
+            </div>
+          </div>
+        </div>
+        <span class="hi-badge ${d.status}">${d.status}</span>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    countEl.textContent = 'error';
+    list.innerHTML = '<div class="history-empty" style="color:#f85149"><i class="ti ti-alert-circle"></i> Could not load history. Is the backend running?</div>';
+  }
+}
+
+async function generatePatch() {
+  if (!currentUser) return;
+  const code = document.getElementById('code').value;
+  const issue = document.getElementById('issue').value;
+  const lang = document.getElementById('lang').value;
+  if (!code.trim() || !issue.trim()) {
+    alert('Please enter both the buggy code and a description of the issue.');
+    return;
+  }
+  const btn = document.getElementById('gen-btn');
+  const resultEl = document.getElementById('patch-result');
+  const titleEl = document.getElementById('result-title');
+  const bodyEl = document.getElementById('result-body');
+  const detailsEl = document.getElementById('agent-details');
+  const workflowEl = document.getElementById('agent-workflow');
+  btn.innerHTML = '<span class="spinner"></span> Generating…';
+  btn.disabled = true;
+  resultEl.style.display = 'block';
+  resultEl.className = 'panel';
+  resultEl.classList.add('result-success');
+  titleEl.innerHTML = '<i class="ti ti-bolt" style="color:#378add;font-size:16px"></i><span style="color:#378add">Agent is working…</span>';
+  bodyEl.textContent = 'AutoPatch is planning, generating, and evaluating a patch now.';
+  detailsEl.style.display = 'block';
+  detailsEl.innerHTML = '<div style="padding:10px 12px;border:1px solid #1c3d5c;border-radius:8px;background:#071828"><div style="font-size:12px;color:#378add;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Agent workflow</div><div style="font-size:12px;color:#85b7eb;line-height:1.7">PLAN → GENERATE → EVAL → REFLECT → RETRY</div></div>';
+  workflowEl.innerHTML = '<strong>Agent mode:</strong> multi-step reasoning with up to 3 attempts.';
+  try {
+    const res = await fetch(API + '/patch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_id: currentUser.id,
+        repo_url: 'demo-repo',
+        issue_text: issue,
+        code: code,
+        language: lang
+      })
+    });
+    const data = await res.json();
+    if (!data.run_id) throw new Error('Missing run id');
+    const finalResult = await pollPatchRun(data.run_id);
+    if (finalResult.status === 'succeeded') {
+      resultEl.classList.add('result-success');
+      titleEl.innerHTML = '<i class="ti ti-check" style="color:#3fb950;font-size:16px"></i><span style="color:#3fb950">Patch generated</span>';
+      bodyEl.textContent = finalResult.generated_diff || 'No patch content returned.';
+      detailsEl.style.display = 'block';
+      detailsEl.innerHTML = '<div style="padding:10px 12px;border:1px solid #1c3d5c;border-radius:8px;background:#071828"><div style="font-size:12px;color:#378add;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Agent summary</div><div style="font-size:13px;color:#e6f1fb;margin-bottom:8px">Attempt ' + (finalResult.attempt_number || 1) + ' completed with score ' + (finalResult.eval_metrics?.quality_score ?? finalResult.score ?? 'n/a') + '</div><div style="font-size:12px;color:#85b7eb;line-height:1.7">' + escHtml(finalResult.error_message || 'Agent completed successfully.') + '</div></div>';
+      workflowEl.innerHTML = '<strong>Agent mode:</strong> inspection → patching → verification complete.';
+    } else {
+      resultEl.classList.add('result-fail');
+      titleEl.innerHTML = '<i class="ti ti-x" style="color:#f85149;font-size:16px"></i><span style="color:#f85149">Generation failed</span>';
+      bodyEl.textContent = finalResult.error_message || 'The agent could not produce a patch.';
+      detailsEl.style.display = 'none';
+      workflowEl.innerHTML = '<strong>Agent mode:</strong> the workflow could not complete. Please try again.';
+    }
+    loadStats();
+  } catch(e) {
+    resultEl.style.display = 'block';
+    resultEl.classList.add('result-fail');
+    titleEl.innerHTML = '<i class="ti ti-wifi-off" style="color:#f85149;font-size:16px"></i><span style="color:#f85149">Connection error</span>';
+    bodyEl.textContent = 'Could not reach the server. Make sure the FastAPI backend is running on port 8000.';
+  }
+  btn.innerHTML = '<i class="ti ti-bolt"></i> Generate patch';
+  btn.disabled = false;
+}
+
+async function pollPatchRun(runId) {
+  for (let attempt = 0; attempt < 15; attempt += 1) {
+    const res = await fetch(API + '/patch/' + runId);
+    const data = await res.json();
+    if (data.status === 'succeeded' || data.status === 'failed') {
+      return data;
+    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+  return { status: 'failed', error_message: 'Timed out while waiting for the agent to finish.' };
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
