@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AutoPatch</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; }
+    input, textarea { width: 100%; padding: 8px; margin: 8px 0; box-sizing: border-box; }
+    button { padding: 10px 20px; background: #000; color: #fff; border: none; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 16px; overflow-x: auto; white-space: pre-wrap; }
+    .status { padding: 8px; margin: 8px 0; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>AutoPatch</h1>
+  <p>AI agent that generates and scores code patches automatically.</p>
+  <input id="repo" placeholder="GitHub repo URL (e.g. https://github.com/octocat/Hello-World)" />
+  <textarea id="issue" rows="4" placeholder="Describe the bug or issue..."></textarea>
+  <button onclick="submitPatch()">Generate Patch</button>
+  <div id="status" class="status"></div>
+  <pre id="result"></pre>
+  <script>
+    const API = 'https://autopatch-b6ze.onrender.com';
+    async function submitPatch() {
+      const repo_url = document.getElementById('repo').value;
+      const issue_text = document.getElementById('issue').value;
+      document.getElementById('status').innerText = 'Submitting...';
+      document.getElementById('result').innerText = '';
+      const res = await fetch(`${API}/patch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ repo_url, issue_text })
+      });
+      const data = await res.json();
+      poll(data.id);
+    }
+    async function poll(id) {
+      document.getElementById('status').innerText = 'Agent running...';
+      const interval = setInterval(async () => {
+        const res = await fetch(`${API}/patch/${id}`);
+        const data = await res.json();
+        if (data.status === 'success' || data.status === 'failed') {
+          clearInterval(interval);
+          document.getElementById('status').innerText = `Status: ${data.status} | Score: ${data.eval_metrics?.quality_score ?? 'N/A'} | ${data.eval_metrics?.latency_ms ?? ''}ms`;
+          document.getElementById('result').innerText = data.generated_diff || data.error_message;
+        }
+      }, 2000);
+    }
+  </script>
+</body>
+</html>
