@@ -2,12 +2,15 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
+
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from app import models, schemas
+from fastapi.security import OAuth2PasswordRequestForm
+
+from app import auth, models, schemas
 from app.database import SessionLocal, engine, get_db
 from app.patch_service import generate_patch
 
@@ -24,13 +27,46 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.on_event("startup")
 def startup():
     models.Base.metadata.create_all(bind=engine)
 
+
 @app.get("/")
 def serve_frontend():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.post("/auth/register", response_model=schemas.Token)
+def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(models.User).filter(models.User.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user = models.User(
+        email=payload.email,
+        hashed_password=auth.get_password_hash(payload.password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = auth.create_access_token(data={"sub": str(user.id)})
+    return {"access_token": token, "token_type": "bearer"}
+
+
+@app.post("/auth/token", response_model=schemas.Token)
+def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    user = auth.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = auth.create_access_token(data={"sub": str(user.id)})
+    return {"access_token": token, "token_type": "bearer"}
 
 
 def _score_tests_passed(diff: str) -> tuple[int, int]:
@@ -115,40 +151,22 @@ async def create_patch(
     request: schemas.PatchRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
 ):
-    user_id = request.user_id
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id is required")
-    try:
-        normalized_user_id = uuid.UUID(str(user_id))
-    except ValueError:
-        normalized_user_id = uuid.uuid4()
-
-    user = db.query(models.User).filter(models.User.id == normalized_user_id).first()
-    if not user:
-        user = models.User(
-            id=normalized_user_id,
-            email=f"user-{str(normalized_user_id)[:8]}@autopatch.dev",
-            hashed_password="placeholder",
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
     repo = (
         db.query(models.Repo)
-        .filter(models.Repo.github_url == request.repo_url, models.Repo.user_id == user.id)
+        .filter(models.Repo.github_url == request.repo_url, models.Repo.user_id == current_user.id)
         .first()
     )
     if not repo:
-        repo = models.Repo(user_id=user.id, github_url=request.repo_url)
+        repo = models.Repo(user_id=current_user.id, github_url=request.repo_url)
         db.add(repo)
         db.commit()
         db.refresh(repo)
 
     patch_run = models.PatchRun(
         repo_id=repo.id,
-        user_id=user.id,
+        user_id=current_user.id,
         issue_text=request.issue_text,
         status="running",
     )
@@ -161,24 +179,28 @@ async def create_patch(
 
 
 @app.get("/patch/{patch_id}", response_model=schemas.PatchRunOut)
-def get_patch(patch_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_patch(
+    patch_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user),
+):
     patch_run = db.query(models.PatchRun).filter(models.PatchRun.id == patch_id).first()
     if not patch_run:
         raise HTTPException(status_code=404, detail="Patch run not found")
+    if patch_run.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to view this patch run")
     return patch_run
 
 
 @app.get("/history", response_model=list[schemas.PatchRunOut])
 def get_history(
     db: Session = Depends(get_db),
-    user_id: Optional[str] = Query(default=None),
+    current_user: models.User = Depends(auth.get_current_user),
 ):
-    query = db.query(models.PatchRun)
-    if user_id:
-        try:
-            normalized_user_id = uuid.UUID(str(user_id))
-        except ValueError:
-            normalized_user_id = None
-        if normalized_user_id is not None:
-            query = query.filter(models.PatchRun.user_id == normalized_user_id)
-    return query.order_by(models.PatchRun.created_at.desc()).limit(50).all()
+    return (
+        db.query(models.PatchRun)
+        .filter(models.PatchRun.user_id == current_user.id)
+        .order_by(models.PatchRun.created_at.desc())
+        .limit(50)
+        .all()
+    )

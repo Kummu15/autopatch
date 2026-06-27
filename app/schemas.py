@@ -8,7 +8,19 @@ from pydantic import BaseModel
 class PatchRequest(BaseModel):
     repo_url: str
     issue_text: str
+class PatchRunStartResponse(BaseModel):
+    run_id: uuid.UUID
+    status: str
 
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
 
 class PatchRunCreate(BaseModel):
     repo_id: str
