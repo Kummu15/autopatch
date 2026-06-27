@@ -4,22 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AutoPatch</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/diff-highlight/prism-diff-highlight.min.css">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e4e4e4; min-height: 100vh; }
   header { border-bottom: 1px solid #1e1e1e; padding: 20px 40px; display: flex; align-items: center; gap: 12px; }
   header h1 { font-size: 18px; font-weight: 600; color: #fff; }
   header span { font-size: 11px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; padding: 2px 8px; border-radius: 20px; }
-  .badge-live { background: #0f2a1a; border-color: #1a4a2a; color: #4ade80; }
+  .badge-live { background: #0f2a1a !important; border-color: #1a4a2a !important; color: #4ade80 !important; }
   header .auth-info { margin-left: auto; display: flex; align-items: center; gap: 12px; }
   header .auth-info span.email { font-size: 12px; color: #888; background: none; border: none; padding: 0; }
   header .logout-btn { font-size: 12px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #f87171; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
   header .logout-btn:hover { background: #2a1414; }
+
+  .nav-tabs { display: flex; gap: 4px; margin-left: 32px; }
+  .nav-tab { font-size: 12px; padding: 6px 14px; border-radius: 8px; border: 1px solid transparent; color: #666; cursor: pointer; background: none; width: auto; margin: 0; transition: all 0.15s; }
+  .nav-tab:hover { color: #aaa; background: #111; }
+  .nav-tab.active { background: #0f2a1a; border-color: #1a4a2a; color: #4ade80; }
+
   main { max-width: 860px; margin: 60px auto; padding: 0 24px; }
   .hero { text-align: center; margin-bottom: 48px; }
   .hero h2 { font-size: 36px; font-weight: 700; color: #fff; line-height: 1.2; margin-bottom: 12px; }
   .hero h2 span { color: #4ade80; }
-  .hero p { color: #666; font-size: 15px; }
   .card { background: #111; border: 1px solid #1e1e1e; border-radius: 12px; padding: 24px; margin-bottom: 16px; }
   label { font-size: 12px; color: #928080; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 8px; }
   input, textarea { width: 100%; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 14px; color: #e4e4e4; font-size: 14px; outline: none; transition: border-color 0.2s; font-family: inherit; }
@@ -29,29 +36,37 @@
   button:hover { background: #22c55e; }
   button:active { transform: scale(0.99); }
   button:disabled { background: #1a1a1a; color: #444; cursor: not-allowed; }
+
   .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
   .metric { background: #111; border: 1px solid #1e1e1e; border-radius: 10px; padding: 16px; text-align: center; }
   .metric .val { font-size: 28px; font-weight: 700; color: #4ade80; }
   .metric .lbl { font-size: 11px; color: #555; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .score-breakdown { background: #111; border: 1px solid #1e1e1e; border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+  .score-breakdown h3 { font-size: 11px; color: #555; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px; }
+  .score-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .score-row:last-child { margin-bottom: 0; }
+  .score-label { font-size: 12px; color: #888; width: 130px; flex-shrink: 0; }
+  .score-bar-track { flex: 1; height: 6px; background: #1e1e1e; border-radius: 3px; overflow: hidden; }
+  .score-bar-fill { height: 100%; border-radius: 3px; background: #4ade80; transition: width 0.6s ease; }
+  .score-bar-fill.mid { background: #facc15; }
+  .score-bar-fill.low { background: #f87171; }
+  .score-val { font-size: 12px; color: #e4e4e4; font-weight: 600; width: 42px; text-align: right; flex-shrink: 0; }
+
   .status-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: #111; border: 1px solid #1e1e1e; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #888; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: #333; flex-shrink: 0; }
   .dot.running { background: #facc15; animation: pulse 1s infinite; }
   .dot.success { background: #4ade80; }
   .dot.failed { background: #f87171; }
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
   .diff-container { background: #0a0a0a; border: 1px solid #1e1e1e; border-radius: 10px; overflow: hidden; }
   .diff-header { padding: 10px 16px; background: #111; border-bottom: 1px solid #1e1e1e; font-size: 12px; color: #555; display: flex; justify-content: space-between; }
-  pre { padding: 20px; font-size: 13px; line-height: 1.7; overflow-x: auto; font-family: 'SF Mono', 'Fira Code', monospace; }
-  .line-add { color: #4ade80; display: block; }
-  .line-remove { color: #f87171; display: block; }
-  .line-meta { color: #555; display: block; }
-  .line-normal { color: #888; display: block; }
-  .hidden { display: none; }
-  .steps { display: flex; justify-content: center; gap: 8px; margin-bottom: 40px; flex-wrap: wrap; }
-  .step { font-size: 11px; padding: 4px 12px; border-radius: 20px; background: #111; border: 1px solid #1e1e1e; color: #555; }
-  .step.active { border-color: #4ade80; color: #4ade80; background: #0f2a1a; }
+  .diff-container pre[class*="language-"] { background: #0a0a0a !important; margin: 0; border-radius: 0; padding: 20px; font-size: 13px; line-height: 1.7; }
+  .diff-container code[class*="language-"] { font-family: 'SF Mono', 'Fira Code', monospace; }
 
-  /* Auth styles */
+  .hidden { display: none; }
+
   .auth-wrapper { max-width: 380px; margin: 100px auto; padding: 0 24px; }
   .auth-card { background: #111; border: 1px solid #1e1e1e; border-radius: 12px; padding: 32px; }
   .auth-card h2 { font-size: 22px; color: #fff; margin-bottom: 6px; text-align: center; }
@@ -60,6 +75,27 @@
   .auth-toggle { text-align: center; margin-top: 16px; font-size: 13px; color: #666; }
   .auth-toggle a { color: #4ade80; cursor: pointer; text-decoration: none; }
   .auth-toggle a:hover { text-decoration: underline; }
+
+  #history-view { display: none; }
+  .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .history-header h2 { font-size: 22px; font-weight: 700; color: #fff; }
+  .history-empty { text-align: center; padding: 60px 0; color: #444; font-size: 14px; }
+  .history-empty span { display: block; font-size: 32px; margin-bottom: 12px; }
+  .history-list { display: flex; flex-direction: column; gap: 12px; }
+  .history-item { background: #111; border: 1px solid #1e1e1e; border-radius: 12px; padding: 20px; cursor: pointer; transition: border-color 0.15s; }
+  .history-item:hover { border-color: #2e2e2e; }
+  .history-item .hi-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+  .history-item .hi-repo { font-size: 13px; font-weight: 600; color: #e4e4e4; word-break: break-all; }
+  .history-item .hi-status { font-size: 11px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
+  .hi-status.success { background: #0f2a1a; border: 1px solid #1a4a2a; color: #4ade80; }
+  .hi-status.failed { background: #2a1414; border: 1px solid #4a1a1a; color: #f87171; }
+  .hi-status.running { background: #2a2000; border: 1px solid #4a3a00; color: #facc15; }
+  .history-item .hi-issue { font-size: 12px; color: #666; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .history-item .hi-bottom { display: flex; align-items: center; gap: 16px; }
+  .hi-metric { font-size: 11px; color: #555; }
+  .hi-metric strong { color: #aaa; font-weight: 600; }
+  .hi-time { font-size: 11px; color: #444; margin-left: auto; }
+  .history-loading { text-align: center; padding: 40px 0; color: #555; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -88,47 +124,83 @@
   <h1>AutoPatch</h1>
   <span>v1.0</span>
   <span class="badge-live">live</span>
+  <nav class="nav-tabs">
+    <button class="nav-tab active" onclick="showTab('patch')">Patch</button>
+    <button class="nav-tab" onclick="showTab('history')">History</button>
+  </nav>
   <div class="auth-info">
     <span class="email" id="user-email"></span>
     <button class="logout-btn" onclick="logout()">Log out</button>
   </div>
 </header>
+
 <main>
-  <div class="hero">
-    <h2>AI agent that <span>patches your code</span></h2>
+  <!-- PATCH TAB -->
+  <div id="patch-view">
+    <div class="hero">
+      <h2>AI agent that <span>patches your code</span></h2>
+    </div>
+    <div class="card">
+      <label>GitHub Repo URL</label>
+      <input id="repo" placeholder="https://github.com/octocat/Hello-World" />
+      <label style="margin-top:16px">Issue Description</label>
+      <textarea id="issue" placeholder="Describe the bug or issue you want patched..."></textarea>
+      <button id="btn" onclick="submitPatch()">Generate Patch</button>
+    </div>
+    <div id="status-bar" class="status-bar hidden">
+      <div class="dot" id="dot"></div>
+      <span id="status-text">Waiting...</span>
+    </div>
+    <div id="metrics" class="metrics hidden">
+      <div class="metric"><div class="val" id="m-score">—</div><div class="lbl">Quality Score</div></div>
+      <div class="metric"><div class="val" id="m-latency">—</div><div class="lbl">Latency</div></div>
+      <div class="metric"><div class="val" id="m-attempts">—</div><div class="lbl">Attempts</div></div>
+    </div>
+    <div id="score-breakdown" class="score-breakdown hidden">
+      <h3>Score Breakdown</h3>
+      <div class="score-row">
+        <span class="score-label">Quality Score</span>
+        <div class="score-bar-track"><div class="score-bar-fill" id="bar-quality" style="width:0%"></div></div>
+        <span class="score-val" id="val-quality">—</span>
+      </div>
+      <div class="score-row">
+        <span class="score-label">Semantic Similarity</span>
+        <div class="score-bar-track"><div class="score-bar-fill" id="bar-semantic" style="width:0%"></div></div>
+        <span class="score-val" id="val-semantic">—</span>
+      </div>
+      <div class="score-row">
+        <span class="score-label">Tests Passed</span>
+        <div class="score-bar-track"><div class="score-bar-fill" id="bar-tests" style="width:0%"></div></div>
+        <span class="score-val" id="val-tests">—</span>
+      </div>
+    </div>
+    <div id="diff-wrapper" class="diff-container hidden">
+      <div class="diff-header"><span>generated patch</span><span id="model-label"></span></div>
+      <pre class="language-diff"><code class="language-diff" id="diff"></code></pre>
+    </div>
   </div>
-  <div class="card">
-    <label>GitHub Repo URL</label>
-    <input id="repo" placeholder="https://github.com/octocat/Hello-World" />
-    <label style="margin-top:16px">Issue Description</label>
-    <textarea id="issue" placeholder="Describe the bug or issue you want patched..."></textarea>
-    <button id="btn" onclick="submitPatch()">Generate Patch</button>
-  </div>
-  <div id="status-bar" class="status-bar hidden">
-    <div class="dot" id="dot"></div>
-    <span id="status-text">Waiting...</span>
-  </div>
-  <div id="metrics" class="metrics hidden">
-    <div class="metric"><div class="val" id="m-score">—</div><div class="lbl">Quality Score</div></div>
-    <div class="metric"><div class="val" id="m-latency">—</div><div class="lbl">Latency</div></div>
-    <div class="metric"><div class="val" id="m-attempts">—</div><div class="lbl">Attempts</div></div>
-  </div>
-  <div id="diff-wrapper" class="diff-container hidden">
-    <div class="diff-header"><span>generated patch</span><span id="model-label"></span></div>
-    <pre id="diff"></pre>
+
+  <!-- HISTORY TAB -->
+  <div id="history-view">
+    <div class="history-header">
+      <h2>Patch History</h2>
+    </div>
+    <div id="history-body">
+      <div class="history-loading">Loading your history...</div>
+    </div>
   </div>
 </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-diff.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/diff-highlight/prism-diff-highlight.min.js"></script>
 <script>
   const API = 'https://autopatch-b6ze.onrender.com';
   let pollTimer = null;
-  let authMode = 'login'; // 'login' | 'register'
+  let authMode = 'login';
 
-  // ---------- Auth helpers ----------
-  function getToken() {
-    return localStorage.getItem('autopatch_token');
-  }
+  function getToken() { return localStorage.getItem('autopatch_token'); }
   function setToken(token, email) {
     localStorage.setItem('autopatch_token', token);
     if (email) localStorage.setItem('autopatch_email', email);
@@ -171,13 +243,9 @@
   async function handleAuthSubmit() {
     const email = document.getElementById('auth-email').value.trim();
     const password = document.getElementById('auth-password').value;
-    if (!email || !password) {
-      showAuthError('Email and password are required.');
-      return;
-    }
+    if (!email || !password) { showAuthError('Email and password are required.'); return; }
     document.getElementById('auth-error').classList.add('hidden');
     document.getElementById('auth-btn').disabled = true;
-
     try {
       if (authMode === 'register') {
         const res = await fetch(`${API}/auth/register`, {
@@ -185,10 +253,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || 'Registration failed');
-        }
+        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || 'Registration failed'); }
         const data = await res.json();
         setToken(data.access_token, email);
         showAppView();
@@ -202,10 +267,7 @@
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: form.toString()
         });
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}));
-          throw new Error(err.detail || 'Login failed');
-        }
+        if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.detail || 'Login failed'); }
         const data = await res.json();
         setToken(data.access_token, email);
         showAppView();
@@ -217,59 +279,162 @@
     }
   }
 
-  function logout() {
-    clearToken();
-    showAuthView();
+  function logout() { clearToken(); showAuthView(); }
+
+  function showTab(tab) {
+    document.getElementById('patch-view').style.display = tab === 'patch' ? '' : 'none';
+    document.getElementById('history-view').style.display = tab === 'history' ? '' : 'none';
+    document.querySelectorAll('.nav-tab').forEach((el, i) => {
+      el.classList.toggle('active', (i === 0 && tab === 'patch') || (i === 1 && tab === 'history'));
+    });
+    if (tab === 'history') loadHistory();
   }
 
-  // ---------- App logic ----------
-  function setStep(n) {
-    for(let i=1;i<=5;i++) {
-      const el = document.getElementById('s'+i);
-      if (el) el.classList.remove('active');
+  async function loadHistory() {
+    const body = document.getElementById('history-body');
+    body.innerHTML = '<div class="history-loading">Loading your history...</div>';
+    try {
+      const res = await fetch(`${API}/history`, { headers: authHeaders() });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      const runs = Array.isArray(data) ? data : (data.runs || data.history || []);
+      if (!runs.length) {
+        body.innerHTML = '<div class="history-empty"><span>🩹</span>No patches yet. Generate your first one!</div>';
+        return;
+      }
+      body.innerHTML = `<div class="history-list">${runs.map(renderHistoryItem).join('')}</div>`;
+    } catch (e) {
+      body.innerHTML = '<div class="history-empty"><span>⚠️</span>Failed to load history. Try again.</div>';
     }
-    if(n) {
-      const el = document.getElementById('s'+n);
-      if (el) el.classList.add('active');
+  }
+
+  function renderHistoryItem(run) {
+    const status = run.status || 'unknown';
+    const repo = run.repo_url || run.repository || '—';
+    const issue = run.issue_text || run.issue || '—';
+    const quality = run.eval_metrics?.quality_score ?? run.quality_score ?? null;
+    const latency = run.eval_metrics?.latency_ms ?? run.latency_ms ?? null;
+    const attempts = run.attempt_number ?? run.attempts ?? null;
+    const createdAt = run.created_at || run.timestamp || null;
+    const timeStr = createdAt ? new Date(createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return `
+    <div class="history-item" onclick="viewHistoryRun('${run.id || run.run_id}')">
+      <div class="hi-top">
+        <span class="hi-repo">${esc(repo)}</span>
+        <span class="hi-status ${status}">${status}</span>
+      </div>
+      <div class="hi-issue">${esc(issue)}</div>
+      <div class="hi-bottom">
+        ${quality !== null ? `<span class="hi-metric"><strong>${quality}</strong> quality</span>` : ''}
+        ${latency !== null ? `<span class="hi-metric"><strong>${latency}ms</strong> latency</span>` : ''}
+        ${attempts !== null ? `<span class="hi-metric"><strong>${attempts}</strong> attempt${attempts !== 1 ? 's' : ''}</span>` : ''}
+        ${timeStr ? `<span class="hi-time">${timeStr}</span>` : ''}
+      </div>
+    </div>`;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  async function viewHistoryRun(id) {
+    if (!id || id === 'undefined') return;
+    showTab('patch');
+    document.getElementById('status-bar').classList.remove('hidden');
+    document.getElementById('dot').className = 'dot running';
+    document.getElementById('status-text').textContent = 'Loading patch...';
+    document.getElementById('metrics').classList.add('hidden');
+    document.getElementById('score-breakdown').classList.add('hidden');
+    document.getElementById('diff-wrapper').classList.add('hidden');
+    try {
+      const res = await fetch(`${API}/patch/${id}`, { headers: authHeaders() });
+      if (res.status === 401) { logout(); return; }
+      const data = await res.json();
+      displayResult(data);
+    } catch(e) {
+      document.getElementById('status-text').textContent = 'Failed to load patch';
+      document.getElementById('dot').className = 'dot failed';
     }
   }
 
-  function renderDiff(text) {
-    return text.split('\n').map(line => {
-      if(line.startsWith('+') && !line.startsWith('+++')) return `<span class="line-add">${escape(line)}</span>`;
-      if(line.startsWith('-') && !line.startsWith('---')) return `<span class="line-remove">${escape(line)}</span>`;
-      if(line.startsWith('@@')) return `<span class="line-meta">${escape(line)}</span>`;
-      return `<span class="line-normal">${escape(line)}</span>`;
-    }).join('');
+  function barColor(pct) {
+    if (pct >= 70) return '';
+    if (pct >= 40) return 'mid';
+    return 'low';
   }
 
-  function escape(s) {
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  function setScoreBar(barId, valId, raw, max) {
+    const pct = max > 0 ? Math.min(100, (raw / max) * 100) : 0;
+    const bar = document.getElementById(barId);
+    const val = document.getElementById(valId);
+    bar.style.width = pct + '%';
+    bar.className = 'score-bar-fill ' + barColor(pct);
+    val.textContent = raw !== null && raw !== undefined ? raw : '—';
+  }
+
+  function displayResult(data) {
+    const dot = document.getElementById('dot');
+    dot.className = 'dot ' + (data.status === 'success' ? 'success' : 'failed');
+    document.getElementById('status-text').textContent = data.status === 'success' ? 'Patch generated successfully' : 'Agent failed';
+
+    if (data.eval_metrics) {
+      const m = data.eval_metrics;
+      document.getElementById('m-score').textContent = m.quality_score ?? '—';
+      document.getElementById('m-latency').textContent = m.latency_ms ? m.latency_ms + 'ms' : '—';
+      document.getElementById('m-attempts').textContent = data.attempt_number ?? '1';
+      document.getElementById('metrics').classList.remove('hidden');
+
+      const quality = m.quality_score ?? null;
+      const semantic = m.semantic_sim ?? null;
+      const tests = m.tests_passed ?? null;
+
+      if (quality !== null || semantic !== null || tests !== null) {
+        setScoreBar('bar-quality', 'val-quality', quality, 100);
+        setScoreBar('bar-semantic', 'val-semantic',
+          semantic !== null ? Math.round(semantic * 100) : null, 100);
+        if (tests !== null) {
+          setScoreBar('bar-tests', 'val-tests', tests, 100);
+        } else {
+          document.getElementById('bar-tests').style.width = '0%';
+          document.getElementById('val-tests').textContent = '—';
+        }
+        document.getElementById('score-breakdown').classList.remove('hidden');
+      }
+    }
+
+    if (data.generated_diff) {
+      const clean = data.generated_diff.replace(/```diff\n?/g,'').replace(/```/g,'').trim();
+      const codeEl = document.getElementById('diff');
+      codeEl.textContent = clean;
+      Prism.highlightElement(codeEl);
+      document.getElementById('model-label').textContent = data.model_used || '';
+      document.getElementById('diff-wrapper').classList.remove('hidden');
+    }
+
+    document.getElementById('btn').disabled = false;
+    document.getElementById('btn').textContent = 'Generate Patch';
   }
 
   async function submitPatch() {
     const repo_url = document.getElementById('repo').value.trim();
     const issue_text = document.getElementById('issue').value.trim();
-    if(!repo_url || !issue_text) return;
+    if (!repo_url || !issue_text) return;
     document.getElementById('btn').disabled = true;
     document.getElementById('btn').textContent = 'Running agent...';
     document.getElementById('status-bar').classList.remove('hidden');
     document.getElementById('metrics').classList.add('hidden');
+    document.getElementById('score-breakdown').classList.add('hidden');
     document.getElementById('diff-wrapper').classList.add('hidden');
     const dot = document.getElementById('dot');
     dot.className = 'dot running';
     document.getElementById('status-text').textContent = 'Submitting to agent...';
-    setStep(1);
     try {
       const res = await fetch(`${API}/patch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ repo_url, issue_text })
       });
-      if (res.status === 401) {
-        logout();
-        return;
-      }
+      if (res.status === 401) { logout(); return; }
       const data = await res.json();
       poll(data.run_id);
     } catch(e) {
@@ -284,48 +449,24 @@
     let step = 1;
     const steps = ['Planning...','Generating patch...','Evaluating...','Reflecting...','Retrying...'];
     pollTimer = setInterval(async () => {
-      step = Math.min(step+1, 5);
-      setStep(step);
-      document.getElementById('status-text').textContent = steps[step-1];
+      step = Math.min(step + 1, 5);
+      document.getElementById('status-text').textContent = steps[step - 1];
       try {
-        const res = await fetch(`${API}/patch/${id}`, {
-          headers: authHeaders()
-        });
-        if (res.status === 401) {
-          clearInterval(pollTimer);
-          logout();
-          return;
-        }
+        const res = await fetch(`${API}/patch/${id}`, { headers: authHeaders() });
+        if (res.status === 401) { clearInterval(pollTimer); logout(); return; }
         const data = await res.json();
-        if(data.status === 'success' || data.status === 'failed') {
+        if (data.status === 'success' || data.status === 'failed') {
           clearInterval(pollTimer);
-          const dot = document.getElementById('dot');
-          dot.className = 'dot ' + (data.status === 'success' ? 'success' : 'failed');
-          document.getElementById('status-text').textContent = data.status === 'success' ? 'Patch generated successfully' : 'Agent failed';
-          setStep(null);
-          if(data.eval_metrics) {
-            document.getElementById('m-score').textContent = data.eval_metrics.quality_score ?? '—';
-            document.getElementById('m-latency').textContent = data.eval_metrics.latency_ms ? data.eval_metrics.latency_ms+'ms' : '—';
-            document.getElementById('m-attempts').textContent = data.attempt_number ?? '1';
-            document.getElementById('metrics').classList.remove('hidden');
-          }
-          if(data.generated_diff) {
-            const clean = data.generated_diff.replace(/```diff\n?/g,'').replace(/```/g,'').trim();
-            document.getElementById('diff').innerHTML = renderDiff(clean);
-            document.getElementById('model-label').textContent = data.model_used || '';
-            document.getElementById('diff-wrapper').classList.remove('hidden');
-          }
-          document.getElementById('btn').disabled = false;
-          document.getElementById('btn').textContent = 'Generate Patch';
+          displayResult(data);
         }
       } catch(e) {}
     }, 2000);
   }
 
-  // ---------- Init ----------
   (function init() {
     if (getToken()) {
       showAppView();
+      showTab('patch');
     } else {
       showAuthView();
     }
