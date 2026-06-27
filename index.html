@@ -11,6 +11,10 @@
   header h1 { font-size: 18px; font-weight: 600; color: #fff; }
   header span { font-size: 11px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #888; padding: 2px 8px; border-radius: 20px; }
   .badge-live { background: #0f2a1a; border-color: #1a4a2a; color: #4ade80; }
+  header .auth-info { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  header .auth-info span.email { font-size: 12px; color: #888; background: none; border: none; padding: 0; }
+  header .logout-btn { font-size: 12px; background: #1a1a1a; border: 1px solid #2a2a2a; color: #f87171; padding: 6px 12px; border-radius: 8px; cursor: pointer; }
+  header .logout-btn:hover { background: #2a1414; }
   main { max-width: 860px; margin: 60px auto; padding: 0 24px; }
   .hero { text-align: center; margin-bottom: 48px; }
   .hero h2 { font-size: 36px; font-weight: 700; color: #fff; line-height: 1.2; margin-bottom: 12px; }
@@ -46,13 +50,48 @@
   .steps { display: flex; justify-content: center; gap: 8px; margin-bottom: 40px; flex-wrap: wrap; }
   .step { font-size: 11px; padding: 4px 12px; border-radius: 20px; background: #111; border: 1px solid #1e1e1e; color: #555; }
   .step.active { border-color: #4ade80; color: #4ade80; background: #0f2a1a; }
+
+  /* Auth styles */
+  .auth-wrapper { max-width: 380px; margin: 100px auto; padding: 0 24px; }
+  .auth-card { background: #111; border: 1px solid #1e1e1e; border-radius: 12px; padding: 32px; }
+  .auth-card h2 { font-size: 22px; color: #fff; margin-bottom: 6px; text-align: center; }
+  .auth-card p.sub { font-size: 13px; color: #666; text-align: center; margin-bottom: 24px; }
+  .auth-error { font-size: 13px; color: #f87171; background: #2a1414; border: 1px solid #4a1a1a; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; }
+  .auth-toggle { text-align: center; margin-top: 16px; font-size: 13px; color: #666; }
+  .auth-toggle a { color: #4ade80; cursor: pointer; text-decoration: none; }
+  .auth-toggle a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
+
+<!-- AUTH VIEW -->
+<div id="auth-view" class="auth-wrapper hidden">
+  <div class="auth-card">
+    <h2 id="auth-title">Welcome back</h2>
+    <p class="sub" id="auth-sub">Log in to access AutoPatch</p>
+    <div id="auth-error" class="auth-error hidden"></div>
+    <label>Email</label>
+    <input id="auth-email" type="email" placeholder="you@example.com" />
+    <label style="margin-top:16px">Password</label>
+    <input id="auth-password" type="password" placeholder="••••••••" />
+    <button id="auth-btn" onclick="handleAuthSubmit()">Log In</button>
+    <div class="auth-toggle">
+      <span id="auth-toggle-text">Don't have an account?</span>
+      <a onclick="toggleAuthMode()" id="auth-toggle-link">Register</a>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP VIEW -->
+<div id="app-view" class="hidden">
 <header>
   <h1>AutoPatch</h1>
   <span>v1.0</span>
   <span class="badge-live">live</span>
+  <div class="auth-info">
+    <span class="email" id="user-email"></span>
+    <button class="logout-btn" onclick="logout()">Log out</button>
+  </div>
 </header>
 <main>
   <div class="hero">
@@ -79,13 +118,120 @@
     <pre id="diff"></pre>
   </div>
 </main>
+</div>
+
 <script>
   const API = 'https://autopatch-b6ze.onrender.com';
   let pollTimer = null;
+  let authMode = 'login'; // 'login' | 'register'
 
+  // ---------- Auth helpers ----------
+  function getToken() {
+    return localStorage.getItem('autopatch_token');
+  }
+  function setToken(token, email) {
+    localStorage.setItem('autopatch_token', token);
+    if (email) localStorage.setItem('autopatch_email', email);
+  }
+  function clearToken() {
+    localStorage.removeItem('autopatch_token');
+    localStorage.removeItem('autopatch_email');
+  }
+  function authHeaders() {
+    const token = getToken();
+    return token ? { 'Authorization': 'Bearer ' + token } : {};
+  }
+
+  function showAuthView() {
+    document.getElementById('auth-view').classList.remove('hidden');
+    document.getElementById('app-view').classList.add('hidden');
+  }
+  function showAppView() {
+    document.getElementById('auth-view').classList.add('hidden');
+    document.getElementById('app-view').classList.remove('hidden');
+    document.getElementById('user-email').textContent = localStorage.getItem('autopatch_email') || '';
+  }
+
+  function toggleAuthMode() {
+    authMode = authMode === 'login' ? 'register' : 'login';
+    document.getElementById('auth-title').textContent = authMode === 'login' ? 'Welcome back' : 'Create an account';
+    document.getElementById('auth-sub').textContent = authMode === 'login' ? 'Log in to access AutoPatch' : 'Sign up to start patching';
+    document.getElementById('auth-btn').textContent = authMode === 'login' ? 'Log In' : 'Register';
+    document.getElementById('auth-toggle-text').textContent = authMode === 'login' ? "Don't have an account?" : 'Already have an account?';
+    document.getElementById('auth-toggle-link').textContent = authMode === 'login' ? 'Register' : 'Log In';
+    document.getElementById('auth-error').classList.add('hidden');
+  }
+
+  function showAuthError(msg) {
+    const el = document.getElementById('auth-error');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  async function handleAuthSubmit() {
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    if (!email || !password) {
+      showAuthError('Email and password are required.');
+      return;
+    }
+    document.getElementById('auth-error').classList.add('hidden');
+    document.getElementById('auth-btn').disabled = true;
+
+    try {
+      if (authMode === 'register') {
+        const res = await fetch(`${API}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Registration failed');
+        }
+        const data = await res.json();
+        setToken(data.access_token, email);
+        showAppView();
+      } else {
+        const form = new URLSearchParams();
+        form.set('grant_type', 'password');
+        form.set('username', email);
+        form.set('password', password);
+        const res = await fetch(`${API}/auth/token`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Login failed');
+        }
+        const data = await res.json();
+        setToken(data.access_token, email);
+        showAppView();
+      }
+    } catch (e) {
+      showAuthError(e.message || 'Something went wrong');
+    } finally {
+      document.getElementById('auth-btn').disabled = false;
+    }
+  }
+
+  function logout() {
+    clearToken();
+    showAuthView();
+  }
+
+  // ---------- App logic ----------
   function setStep(n) {
-    for(let i=1;i<=5;i++) document.getElementById('s'+i).classList.remove('active');
-    if(n) document.getElementById('s'+n).classList.add('active');
+    for(let i=1;i<=5;i++) {
+      const el = document.getElementById('s'+i);
+      if (el) el.classList.remove('active');
+    }
+    if(n) {
+      const el = document.getElementById('s'+n);
+      if (el) el.classList.add('active');
+    }
   }
 
   function renderDiff(text) {
@@ -117,11 +263,15 @@
     try {
       const res = await fetch(`${API}/patch`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ repo_url, issue_text })
       });
+      if (res.status === 401) {
+        logout();
+        return;
+      }
       const data = await res.json();
-      poll(data.id);
+      poll(data.run_id);
     } catch(e) {
       document.getElementById('status-text').textContent = 'Error connecting to API';
       dot.className = 'dot failed';
@@ -138,7 +288,14 @@
       setStep(step);
       document.getElementById('status-text').textContent = steps[step-1];
       try {
-        const res = await fetch(`${API}/patch/${id}`);
+        const res = await fetch(`${API}/patch/${id}`, {
+          headers: authHeaders()
+        });
+        if (res.status === 401) {
+          clearInterval(pollTimer);
+          logout();
+          return;
+        }
         const data = await res.json();
         if(data.status === 'success' || data.status === 'failed') {
           clearInterval(pollTimer);
@@ -164,6 +321,15 @@
       } catch(e) {}
     }, 2000);
   }
+
+  // ---------- Init ----------
+  (function init() {
+    if (getToken()) {
+      showAppView();
+    } else {
+      showAuthView();
+    }
+  })();
 </script>
 </body>
 </html>
